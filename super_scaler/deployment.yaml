@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: custom-metric-adapter
+  namespace: custom-metrics
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: custom-metric-adapter
+  template:
+    metadata:
+      labels:
+        app: custom-metric-adapter
+    spec:
+      containers:
+        - name: adapter
+          image: your-repo/custom-metric-adapter:latest
+          ports:
+            - containerPort: 8443
+          volumeMounts:
+            - name: cert-volume
+              mountPath: /etc/ssl/certs
+      volumes:
+        - name: cert-volume
+          secret:
+            secretName: adapter-tls-cert
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: custom-metric-adapter-svc
+  namespace: custom-metrics
+spec:
+  ports:
+    - port: 443
+      targetPort: 8443
+  selector:
+    app: custom-metric-adapter
