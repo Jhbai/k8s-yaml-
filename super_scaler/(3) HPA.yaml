@@ -1,0 +1,47 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: super-scaler
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: worker-service
+  minReplicas: 2
+  maxReplicas: 50
+  metrics:
+    # 規則 1：使用自訂 API 的 External 指標
+    - type: External
+      external:
+        metric:
+          name: my_custom_queue_depth
+        target:
+          type: Value
+          averageValue: 30  # 平均每顆 Pod 分擔 30 個工作，數值超過即擴展
+    # 規則 2：原生 Resource 指標 (如果 metrics-server 有裝)
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 75
+  # 行為控制：打造平滑或高速的縮放策略
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0  # 擴展無需等待，立即反應
+      policies:
+        - type: Percent
+          value: 100                 # 單次最多翻倍擴容
+          periodSeconds: 15
+        - type: Pods
+          value: 4                   # 或單次至少加 4 顆
+          periodSeconds: 15
+      selectPolicy: Max              # 取兩者中較大者
+    scaleDown:
+      stabilizationWindowSeconds: 300 # 縮容前冷卻 5 分鐘，避免震盪
+      policies:
+        - type: Percent
+          value: 10                  # 每次最多縮 10%
+          periodSeconds: 60
+      selectPolicy: Min
